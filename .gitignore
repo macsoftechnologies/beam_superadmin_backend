@@ -1,0 +1,21 @@
+# Environment variables (secrets)
+.env
+.env.*
+!.env.example
+
+# Build artifacts & dependencies
+node_modules/
+dist/
+
+# Runtime / user content
+uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
