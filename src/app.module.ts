@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
 import { PowerBiModule } from './powerbi/powerbi.module';
+import { RegionalDbModule } from './database/regional-db.module';
 import { Admin } from './admin/entities/admin.entity';
 import { Employee } from './admin/entities/employee.entity';
 
@@ -12,6 +13,7 @@ import { Employee } from './admin/entities/employee.entity';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    RegionalDbModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

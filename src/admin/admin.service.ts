@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { RegionalDbService } from '../database/regional-db.service';
 
 export interface RegionalEmployee {
   id: number;
@@ -14,19 +14,10 @@ export interface RegionalEmployee {
 
 @Injectable()
 export class AdminService {
-  constructor(private dataSource: DataSource) {}
+  constructor(private regionalDbService: RegionalDbService) {}
 
   private getDbNameForRegion(regionKey: string): string {
-    switch (regionKey.toLowerCase()) {
-      case 'm3south':
-        return process.env.DB_SOUTH_NAME || 'recent_south';
-      case 'm3infrastructure':
-        return process.env.DB_INFRA_NAME || 'recent_infrastructure';
-      case 'm3north':
-        return process.env.DB_NORTH_NAME || 'recent_north';
-      default:
-        throw new NotFoundException(`Unknown region: ${regionKey}`);
-    }
+    return this.regionalDbService.getDbName(regionKey as any);
   }
 
   private getRegionTitle(regionKey: string): string {
@@ -53,7 +44,8 @@ export class AdminService {
 
     for (const reg of regions) {
       try {
-        const rows = await this.dataSource.query(
+        const rows = await this.regionalDbService.executeQuery(
+          reg.key,
           `SELECT id, companyName, username, email, phonenumber FROM \`${reg.db}\`.employees WHERE id = 1 LIMIT 1`,
         );
         if (rows && rows.length > 0) {
@@ -87,8 +79,10 @@ export class AdminService {
 
   async getRegionalAdminById(regionKey: string, id: number): Promise<RegionalEmployee> {
     const dbName = this.getDbNameForRegion(regionKey);
+    const key = regionKey.toLowerCase() as any;
     try {
-      const rows = await this.dataSource.query(
+      const rows = await this.regionalDbService.executeQuery(
+        key,
         `SELECT id, companyName, username, email, phonenumber FROM \`${dbName}\`.employees WHERE id = ? LIMIT 1`,
         [id],
       );
@@ -126,6 +120,7 @@ export class AdminService {
     updateDto: UpdateEmployeeDto,
   ): Promise<{ message: string; data: any }> {
     const dbName = this.getDbNameForRegion(regionKey);
+    const key = regionKey.toLowerCase() as any;
 
     let passwordHash: string | null = null;
     if (updateDto.password && updateDto.password.trim() !== '') {
@@ -135,22 +130,26 @@ export class AdminService {
 
     try {
       if (passwordHash) {
-        await this.dataSource.query(
+        await this.regionalDbService.executeQuery(
+          key,
           `UPDATE \`${dbName}\`.employees SET username = ?, email = ?, phonenumber = ?, password = ? WHERE id = ?`,
           [updateDto.username, updateDto.email, updateDto.phonenumber, passwordHash, id],
         );
 
-        await this.dataSource.query(
+        await this.regionalDbService.executeQuery(
+          key,
           `UPDATE \`${dbName}\`.users SET username = ?, password = ? WHERE empId = ?`,
           [updateDto.username, passwordHash, id],
         );
       } else {
-        await this.dataSource.query(
+        await this.regionalDbService.executeQuery(
+          key,
           `UPDATE \`${dbName}\`.employees SET username = ?, email = ?, phonenumber = ? WHERE id = ?`,
           [updateDto.username, updateDto.email, updateDto.phonenumber, id],
         );
 
-        await this.dataSource.query(
+        await this.regionalDbService.executeQuery(
+          key,
           `UPDATE \`${dbName}\`.users SET username = ? WHERE empId = ?`,
           [updateDto.username, id],
         );

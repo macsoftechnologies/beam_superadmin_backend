@@ -1,32 +1,17 @@
 import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 import { QueryPowerBiDto } from './dto/query-powerbi.dto';
+import { RegionalDbService } from '../database/regional-db.service';
 
 @Injectable()
 export class PowerBiService {
-  constructor(private dataSource: DataSource) { }
+  constructor(private regionalDbService: RegionalDbService) {}
 
   private getDbName(region: 'm3south' | 'm3north' | 'm3infrastructure'): string {
-    switch (region) {
-      case 'm3south':
-        return process.env.DB_SOUTH_NAME || 'south_testing_db';
-      case 'm3north':
-        return process.env.DB_NORTH_NAME || 'north_testing_db';
-      case 'm3infrastructure':
-        return process.env.DB_INFRA_NAME || 'testing_database';
-    }
+    return this.regionalDbService.getDbName(region);
   }
 
-  private async executeQuery(sql: string, params: any[] = []): Promise<any> {
-    try {
-      return await this.dataSource.query(sql, params);
-    } catch (err: any) {
-      if (err.message && (err.message.includes('ECONNRESET') || err.message.includes('closed'))) {
-        console.warn('MySQL socket reset detected, retrying query once...');
-        return await this.dataSource.query(sql, params);
-      }
-      throw err;
-    }
+  private async executeQuery(region: 'm3south' | 'm3north' | 'm3infrastructure', sql: string, params: any[] = []): Promise<any> {
+    return this.regionalDbService.executeQuery(region, sql, params);
   }
 
   async getRegionData(region: 'm3south' | 'm3north' | 'm3infrastructure', queryDto: QueryPowerBiDto) {
@@ -55,6 +40,7 @@ export class PowerBiService {
     try {
       // Total count query
       const countResult = await this.executeQuery(
+        region,
         `SELECT COUNT(*) as total FROM \`${dbName}\`.\`${tablename}\``,
       );
       const totalRows = countResult && countResult.length > 0 ? Number(countResult[0].total) : 0;
@@ -64,6 +50,7 @@ export class PowerBiService {
       if (tablename.toLowerCase() === 'requests') {
         try {
           rows = await this.executeQuery(
+            region,
             `SELECT 
               r.*,
               rch.working_hazardious_substen, rch.relevant_mal, rch.msds, rch.equipment_taken_account, rch.ventilation, rch.hazardous_substances, rch.storage_and_disposal, rch.reachable_case, rch.checical_risk_assessment,
@@ -99,12 +86,14 @@ export class PowerBiService {
         } catch (joinErr: any) {
           console.warn(`Joined requests query failed, falling back to base table: ${joinErr.message}`);
           rows = await this.executeQuery(
+            region,
             `SELECT * FROM \`${dbName}\`.\`${tablename}\` LIMIT ?, ?`,
             [start, limit],
           );
         }
       } else {
         rows = await this.executeQuery(
+          region,
           `SELECT * FROM \`${dbName}\`.\`${tablename}\` LIMIT ?, ?`,
           [start, limit],
         );
@@ -119,11 +108,11 @@ export class PowerBiService {
 
       if (tablename.toLowerCase() === 'requests') {
         const [floorsRaw, buildingsRaw, zonesRaw, roomsRaw, subsRaw] = await Promise.all([
-          this.executeQuery(`SELECT * FROM \`${dbName}\`.\`floors\``).catch(() => []),
-          this.executeQuery(`SELECT * FROM \`${dbName}\`.\`buildings\``).catch(() => []),
-          this.executeQuery(`SELECT * FROM \`${dbName}\`.\`zones\``).catch(() => []),
-          this.executeQuery(`SELECT * FROM \`${dbName}\`.\`rooms\``).catch(() => []),
-          this.executeQuery(`SELECT * FROM \`${dbName}\`.\`subcontractors\``).catch(() => []),
+          this.executeQuery(region, `SELECT * FROM \`${dbName}\`.\`floors\``).catch(() => []),
+          this.executeQuery(region, `SELECT * FROM \`${dbName}\`.\`buildings\``).catch(() => []),
+          this.executeQuery(region, `SELECT * FROM \`${dbName}\`.\`zones\``).catch(() => []),
+          this.executeQuery(region, `SELECT * FROM \`${dbName}\`.\`rooms\``).catch(() => []),
+          this.executeQuery(region, `SELECT * FROM \`${dbName}\`.\`subcontractors\``).catch(() => []),
         ]);
 
         (floorsRaw || []).forEach((f: any) => {
