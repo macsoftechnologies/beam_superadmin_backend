@@ -149,6 +149,15 @@ export class PowerBiService {
       const dataArray = (rows || []).map((row: any) => {
         const cleanRow = { ...row };
 
+        // 0. Security Sanitization: Strip sensitive authentication & credential fields from all outputs
+        delete cleanRow.password;
+        delete cleanRow.otp;
+        delete cleanRow.auth_token;
+        delete cleanRow.token;
+        delete cleanRow.refreshToken;
+        delete cleanRow.refresh_token;
+        delete cleanRow.otp_created_at;
+
         if (tablename.toLowerCase() === 'requests') {
           // 1. Floor Name
           const floorId = Number(cleanRow.Floor_Id ?? cleanRow.floor_id ?? cleanRow.floorId);
