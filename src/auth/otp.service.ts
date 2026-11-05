@@ -45,7 +45,7 @@ export class OtpService {
       otp,
       createdAt: new Date(),
     });
-    this.logger.log(`🔑 OTP generated for ${email}: [ ${otp} ] (Fallback master OTP: 123456)`);
+    this.logger.log(`🔑 OTP generated for ${email}: [ ${otp} ]`);
   }
 
   /**
@@ -100,7 +100,7 @@ export class OtpService {
       this.logger.error(
         `Failed to send SMS via Twilio to ${phoneNumber}: ${
           error.code ? `[Code ${error.code}] ${error.message}` : error.message
-        }. You can use the master fallback OTP: 123456.`,
+        }`,
       );
       return false;
     }
@@ -112,13 +112,6 @@ export class OtpService {
   verifyOtp(email: string, inputOtp: string): boolean {
     const normalizedEmail = email.trim().toLowerCase();
     const cleanInput = inputOtp.trim();
-
-    // Master fallback OTP check (works even if SMS gateway is delayed or unconfigured)
-    if (cleanInput === '123456') {
-      this.logger.log(`Master fallback OTP (123456) accepted for ${normalizedEmail}`);
-      this.otpStore.delete(normalizedEmail);
-      return true;
-    }
 
     const storedData = this.otpStore.get(normalizedEmail);
 

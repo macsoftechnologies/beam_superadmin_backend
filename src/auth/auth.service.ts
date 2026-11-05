@@ -70,19 +70,19 @@ export class AuthService {
     };
   }
 
-  async verifyOtp(email: string, otp: string) {
-    // Validate OTP using OtpService (removes static OTP option)
-    const isValid = this.otpService.verifyOtp(email, otp);
-    if (!isValid) {
-      throw new BadRequestException('Invalid or expired OTP. Please request a new OTP.');
-    }
-
+  async verifyOtp(emailOrPhone: string, otp: string) {
     const admin = await this.adminRepository.findOne({
-      where: [{ email: email }, { mobileNumber: email }],
+      where: [{ email: emailOrPhone }, { mobileNumber: emailOrPhone }],
     });
 
     if (!admin) {
       throw new UnauthorizedException('User not found');
+    }
+
+    // Strictly validate OTP against the admin's email key in OtpService
+    const isValid = this.otpService.verifyOtp(admin.email, otp);
+    if (!isValid) {
+      throw new BadRequestException('Invalid or expired OTP. Please enter the valid code sent to your mobile.');
     }
 
     const payload = { email: admin.email, sub: admin.adminId, name: admin.adminName, role: 'superadmin' };
